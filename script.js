@@ -106,7 +106,7 @@ function addNPC(mapId, col, row, spritePath, dialog = []) {
 
 // ================== COLLISION ==================
 function isSolidTile(tileId) {
-  return tileId === 2 || tileId === 3 || tileId === 10;
+  return tileId === 2 || tileId === 3 || tileId === 10 || tileId === 11 || tileId === 5;
 }
 
 function canMoveTo(newX, newY) {
@@ -175,13 +175,13 @@ let dialogIndex = 0;
 const waypoints = [
   {
     fromMap: "map1",
-    tile: { col: 8, row: 5 },
-    to: { map: "map_house", col: 2, row: 2 },
+    tile: { col: 10, row: 5 },
+    to: { map: "map_house", col: 5, row: 6},
   },
   {
     fromMap: "map_house",
-    tile: { col: 3, row: 3 },
-    to: { map: "map1", col: 7, row: 5 },
+    tile: { col: 5, row: 7 },
+    to: { map: "map1", col: 9, row: 5 },
   },
 ];
 
@@ -307,7 +307,16 @@ async function loadTiles() {
   await tileEngine.registerTile(2, "textures/water.png");
   await tileEngine.registerTile(3, "textures/stone.png");
   await tileEngine.registerTile(4, "textures/path2.png");
+  await tileEngine.registerTile(5, "textures/wood.png");
+  await tileEngine.registerTile(31, "textures/door-bottom.png");
+  await tileEngine.registerTile(32, "textures/door-top.png");
+  await tileEngine.registerTile(33, "textures/door-left.png");
+  await tileEngine.registerTile(34, "textures/door-right.png");
+  await tileEngine.registerTile(35, "textures/door-right-green.png");
+  await tileEngine.registerTile(36, "textures/door-right-path.png");
   await tileEngine.registerTile(10, "textures/DebugWall.png");
+  await tileEngine.registerTile(11, "textures/InvWall.png");
+  await tileEngine.registerTile(12, "textures/NoCollisonInv.png");
   await tileEngine.registerTile(20, "textures/grass.png");
   await tileEngine.registerTile(30, "textures/teleport.jpg");
 
@@ -318,7 +327,7 @@ async function loadTiles() {
     [10, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 10],
     [10, 1, 1, 1, 1, 4, 1, 1, 1, 1, 1, 10],
     [10, 1, 1, 1, 1, 4, 1, 1, 1, 1, 1, 10],
-    [10, 20, 4, 4, 4, 4, 4, 4, 30, 1, 1, 10],
+    [10, 20, 4, 4, 4, 4, 4, 4, 4, 4, 36, 10],
     [10, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 10],
     [10, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 10],
     [10, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 10],
@@ -329,11 +338,14 @@ async function loadTiles() {
 
   // House interior
   const map_house = [
-    [10, 10, 10, 10, 10, 10, 10],
-    [10, 1, 1, 1, 1, 1, 10],
-    [10, 1, 1, 1, 1, 1, 10],
-    [10, 1, 1, 30, 1, 1, 10],
-    [10, 10, 10, 10, 10, 10],
+    [11, 10, 10, 10, 10, 10, 10, 10, 10, 10, 11],
+    [10, 5, 5, 5, 5, 5, 5, 5, 5, 5, 10],
+    [10, 5, 12, 12, 12, 12, 12, 12, 12, 5, 10],
+    [10, 5, 12, 12, 12, 12, 12, 12, 12, 5, 10],
+    [10, 5, 12, 12, 12, 12, 12, 12, 12, 5, 10],
+    [10, 5, 12, 12, 12, 12, 12, 12, 12, 5, 10],
+    [10, 5, 12, 12, 12, 12, 12, 12, 12, 5, 10],
+    [10, 5, 5, 5, 5, 32, 5, 5, 5, 5, 10],
   ];
   tileEngine.defineMap("map_house", map_house);
 
