@@ -7,7 +7,7 @@ const ctx = canvas.getContext("2d");
 const tileEngine = new TileEngine(ctx, 64);
 let lastTime = performance.now();
 
-let currentMap = "map1"; // track active map
+let currentMap = "map1";
 
 // ================== PLAYER ==================
 const player = {
@@ -40,7 +40,6 @@ let debugMode = false;
 window.addEventListener("keydown", (e) => {
   keys[e.key.toLowerCase()] = true;
 
-  // toggle debug
   if (e.key.toLowerCase() === "e") {
     if (currentDialogNPC) {
       if (!dialogActive) {
@@ -58,7 +57,6 @@ window.addEventListener("keydown", (e) => {
 
 window.addEventListener("keyup", (e) => (keys[e.key.toLowerCase()] = false));
 
-// ================== NPC SYSTEM ==================
 // ================== NPC SYSTEM ==================
 class NPC {
   constructor(x, y, spritePath, dialog = []) {
@@ -98,7 +96,7 @@ const mapNPCs = {};
 // Adds an NPC to a specific map
 function addNPC(mapId, col, row, spritePath, dialog = []) {
   const pos = tileEngine.gridToPixel(col, row);
-  if (!mapNPCs[mapId]) mapNPCs[mapId] = []; // initialize list if empty
+  if (!mapNPCs[mapId]) mapNPCs[mapId] = [];
   const npc = new NPC(pos.x, pos.y, spritePath, dialog);
   mapNPCs[mapId].push(npc);
   return npc;
@@ -106,7 +104,7 @@ function addNPC(mapId, col, row, spritePath, dialog = []) {
 
 // ================== COLLISION ==================
 function isSolidTile(tileId) {
-  return tileId === 2 || tileId === 3 || tileId === 10 || tileId === 11 || tileId === 5;
+  return tileId === 2 || tileId === 3 || tileId === 100 || tileId === 101 || tileId === 5 || tileId === 6 || tileId === 10;
 }
 
 function canMoveTo(newX, newY) {
@@ -163,7 +161,7 @@ function updatePlayerMovement(dt) {
   if (canMoveTo(newX, player.y)) player.x = newX;
   if (canMoveTo(player.x, newY)) player.y = newY;
 
-  checkWaypointTrigger(); // <-- check scene change
+  checkWaypointTrigger();
 }
 
 // ================== DIALOG STATE ==================
@@ -175,13 +173,23 @@ let dialogIndex = 0;
 const waypoints = [
   {
     fromMap: "map1",
-    tile: { col: 10, row: 5 },
+    tile: { col: 9, row: 2 },
     to: { map: "map_house", col: 5, row: 6},
   },
   {
     fromMap: "map_house",
     tile: { col: 5, row: 7 },
-    to: { map: "map1", col: 9, row: 5 },
+    to: { map: "map1", col: 9, row: 3 },
+  },
+    {
+    fromMap: "map1",
+    tile: { col: 6, row: 9 },
+    to: { map: "map2", col: 6, row: 2  },
+  },
+      {
+    fromMap: "map2",
+    tile: { col: 6, row: 1 },
+    to: { map: "map1", col: 6, row: 8  },
   },
 ];
 
@@ -194,7 +202,6 @@ function checkWaypointTrigger() {
   for (const wp of waypoints) {
     if (wp.fromMap === currentMap) {
       if (wp.tile.col === col && wp.tile.row === row) {
-        // teleport
         currentMap = wp.to.map;
         setPlayerSpawn(wp.to.col, wp.to.row);
         break;
@@ -207,21 +214,14 @@ function checkWaypointTrigger() {
 function gameLoop(now = performance.now()) {
   const dt = (now - lastTime) / 1000;
   lastTime = now;
-
   updatePlayerMovement(dt);
-
   ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-  // Camera center
   const offsetX = player.x - canvas.width / 2 + player.width / 2;
   const offsetY = player.y - canvas.height / 2 + player.height / 2;
-
   tileEngine.drawMap(currentMap, offsetX, offsetY);
-
 if (mapNPCs[currentMap]) {
   mapNPCs[currentMap].forEach((npc) => npc.draw(ctx, offsetX, offsetY));
 }
-
   ctx.drawImage(
     player.image,
     canvas.width / 2 - player.width / 2,
@@ -249,7 +249,7 @@ if (!dialogActive) {
         (hb.top + hb.bottom) / 2
       );
 
-    if (distX < 60 && distY < 60) {     // <--- widen threshold slightly
+    if (distX < 60 && distY < 60) { 
       currentDialogNPC = npc;
     }
   }
@@ -264,7 +264,6 @@ if (!dialogActive) {
   }
 }
 
-  // Dialog box
 if (dialogActive && currentDialogNPC) {
   const text = currentDialogNPC.dialog[dialogIndex] || "";
 
@@ -303,70 +302,95 @@ function wrapText(ctx, text, x, y, maxWidth, lineHeight) {
 
 // ================== INITIALIZE ==================
 async function loadTiles() {
-  await tileEngine.registerTile(1, "textures/grass.png");
-  await tileEngine.registerTile(2, "textures/water.png");
-  await tileEngine.registerTile(3, "textures/stone.png");
-  await tileEngine.registerTile(4, "textures/path2.png");
-  await tileEngine.registerTile(5, "textures/wood.png");
-  await tileEngine.registerTile(31, "textures/door-bottom.png");
-  await tileEngine.registerTile(32, "textures/door-top.png");
-  await tileEngine.registerTile(33, "textures/door-left.png");
-  await tileEngine.registerTile(34, "textures/door-right.png");
-  await tileEngine.registerTile(35, "textures/door-right-green.png");
-  await tileEngine.registerTile(36, "textures/door-right-path.png");
-  await tileEngine.registerTile(10, "textures/DebugWall.png");
-  await tileEngine.registerTile(11, "textures/InvWall.png");
-  await tileEngine.registerTile(12, "textures/NoCollisonInv.png");
-  await tileEngine.registerTile(20, "textures/grass.png");
-  await tileEngine.registerTile(30, "textures/teleport.jpg");
+  const promises = [];
+  const register = (id, path) => promises.push(tileEngine.registerTile(id, path));
+
+  // Main tiles
+  register(1, "textures/grass.png");
+  register(2, "textures/water.png");
+  register(3, "textures/stone.png");
+  register(4, "textures/path2.png");
+  register(5, "textures/wood.png");
+  register(6, "textures/tree.png");
+  register(7, "textures/bush.png");
+  register(8, "textures/rug-bottom.png");
+  register(9, "textures/rug-top.png");
+  register(10, "textures/desk.png");
+  register(11, "textures/bed-bottom.png");
+  register(12, "textures/bed-top.png");
+
+  // Misc
+  register(20, "textures/grass.png");
+  register(30, "textures/teleport.jpg");
+  register(31, "textures/door-bottom.png");
+  register(32, "textures/door-top.png");
+  register(33, "textures/house-inside.png");
+  register(34, "textures/door-left.png");
+  register(35, "textures/door-right.png");
+  register(36, "textures/door-right-green.png");
+  register(37, "textures/door-top-path.png");
+
+  // Debug
+  register(100, "textures/DebugWall.png");
+  register(101, "textures/InvWall.png");
+  register(102, "textures/NoCollisonInv.png");
+
+  // Wait for ALL images at once
+  await Promise.all(promises);
 
   // Map 1
   const map1 = [
-    [10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10 ,10],
-    [10, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 10],
-    [10, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 10],
-    [10, 1, 1, 1, 1, 4, 1, 1, 1, 1, 1, 10],
-    [10, 1, 1, 1, 1, 4, 1, 1, 1, 1, 1, 10],
-    [10, 20, 4, 4, 4, 4, 4, 4, 4, 4, 36, 10],
-    [10, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 10],
-    [10, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 10],
-    [10, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 10],
-    [10, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 10],
-    [10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10 ,10 ],
+    [100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100 ,100],
+    [100, 1, 1, 1, 1, 7, 1, 1, 5, 5, 5, 100],
+    [100, 1, 6, 1, 1, 1, 6, 1, 5, 37, 5, 100],
+    [100, 1, 1, 7, 1, 1, 1, 1, 6, 4, 1, 100],
+    [100, 1, 1, 1, 1, 1, 1, 7, 1, 4, 1, 100],
+    [100, 20, 4, 4, 4, 4, 4, 4, 4, 4, 1, 100],
+    [100, 1, 1, 1, 1, 4, 7, 1, 1, 1, 1, 100],
+    [100, 1, 1, 6, 1, 4, 4, 1, 1, 1, 6, 100],
+    [100, 1, 7, 1, 1, 7, 4, 6, 1, 1, 1, 100],
+    [100, 1, 6, 1, 1, 1, 4, 1, 1, 7, 1, 100],
+    [100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100 ,100],
   ];
   tileEngine.defineMap("map1", map1);
 
+  // Map 2 (simple room)
+  const map2 = [
+    [100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100 ,100],
+    [100, 1, 1, 1, 1, 1, 4, 1, 1, 1, 1, 100],
+    [100, 1, 1, 1, 1, 1, 4, 1, 1, 1, 1, 100],
+    [100, 1, 1, 1, 1, 1, 4, 1, 1, 1, 1, 100],
+    [100, 1, 1, 1, 1, 1, 4, 1, 1, 1, 1, 100],
+    [100, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 100],
+    [100, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 100],
+    [100, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 100],
+    [100, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 100],
+    [100, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 100],
+    [100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100 ,100],
+  ];
+  tileEngine.defineMap("map2", map2);
+
   // House interior
   const map_house = [
-    [11, 10, 10, 10, 10, 10, 10, 10, 10, 10, 11],
-    [10, 5, 5, 5, 5, 5, 5, 5, 5, 5, 10],
-    [10, 5, 12, 12, 12, 12, 12, 12, 12, 5, 10],
-    [10, 5, 12, 12, 12, 12, 12, 12, 12, 5, 10],
-    [10, 5, 12, 12, 12, 12, 12, 12, 12, 5, 10],
-    [10, 5, 12, 12, 12, 12, 12, 12, 12, 5, 10],
-    [10, 5, 12, 12, 12, 12, 12, 12, 12, 5, 10],
-    [10, 5, 5, 5, 5, 32, 5, 5, 5, 5, 10],
+    [101, 100, 100, 100, 100, 100, 100, 100, 100, 100, 101],
+    [100, 5, 5, 5, 5, 5, 5, 5, 5, 5, 100],
+    [100, 5, 33, 10, 33, 33, 33, 33, 12, 5, 100],
+    [100, 5, 8, 33, 33, 33, 33, 33, 11, 5, 100],
+    [100, 5, 9, 33, 33, 33, 33, 33, 33, 5, 100],
+    [100, 5, 33, 33, 33, 33, 33, 33, 33, 5, 100],
+    [100, 5, 33, 33, 33, 33, 33, 33, 33, 5, 100],
+    [100, 5, 5, 5, 5, 32, 5, 5, 5, 5, 100],
   ];
   tileEngine.defineMap("map_house", map_house);
 
 
-// NPC on map1
-addNPC("map1", 5, 2, "textures/NPC.png", [
-  "Good night traveler!",
-  "I'm so happy it finally works",
-]);
-
 // NPC on map_house
-addNPC("map_house", 3, 2, "textures/NPC.png", [
-  "Welcome inside!",
-  "It’s cozy here :)",
+addNPC("map_house", 3, 2, "textures/House-NPC.png", [
+  "Hello Traveler!",
+  "I was just working. What brings you here?",
 ]);
-
 gameLoop();
-
 }
-
-
 
 setPlayerSpawn(2, 5);
 
