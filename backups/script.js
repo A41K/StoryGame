@@ -16,17 +16,12 @@ const player = {
   y: 200,
   width: 64,
   height: 64,
-  name: "",
+  name: "", // player's chosen name
 };
 
-// Prompt for name
+// Prompt for name at start
 player.name = prompt("Enter your name:", "Player") || "Player";
 
-// ================== INVENTORY ==================
-let inventory = [];
-let inventoryOpen = false;
-
-// ================== PLAYER HELPERS ==================
 function setPlayerSpawn(col, row) {
   const pos = tileEngine.gridToPixel(col, row);
   player.x = pos.x;
@@ -50,17 +45,11 @@ window.addEventListener("keydown", (e) => {
   const key = e.key.toLowerCase();
   keys[key] = true;
 
+  // Toggle debug mode
   if (key === "h") debugMode = !debugMode;
-
-  // Toggle inventory
-  if (key === "i" && !dialogActive) {
-    inventoryOpen = !inventoryOpen;
-  }
 
   // Handle dialog
   if (key === "e") {
-    if (inventoryOpen) return; // E reserved for dialogs only
-
     if (currentDialogNPC) {
       if (!dialogActive) {
         dialogActive = true;
@@ -68,34 +57,13 @@ window.addEventListener("keydown", (e) => {
         currentChoices = null;
       } else {
         const currentLine = currentDialogNPC.dialog[dialogIndex];
-
         if (typeof currentLine === "object" && currentLine.choices) {
+          // Confirm selected choice, replace choice node with outcome
           const chosen = currentLine.choices[selectedChoice];
-
-          // Replace choice with its outcome
-          let outcome = [...chosen.outcome];
-
-          // Run any functions before inserting text
-          outcome = outcome.filter((entry) => {
-            if (typeof entry === "function") {
-              entry(); // run action
-              return false;
-            }
-            return true;
-          });
-
-          currentDialogNPC.dialog.splice(dialogIndex, 1, ...outcome);
+          currentDialogNPC.dialog.splice(dialogIndex, 1, ...chosen.outcome);
           currentChoices = null;
         } else {
-          // Normal advance
-          // Run function lines automatically
-          if (typeof currentLine === "function") {
-            currentLine();
-            dialogIndex++;
-          } else {
-            dialogIndex++;
-          }
-
+          dialogIndex++;
           if (dialogIndex >= currentDialogNPC.dialog.length) {
             dialogActive = false;
             currentChoices = null;
@@ -105,7 +73,6 @@ window.addEventListener("keydown", (e) => {
     }
   }
 
-  // Choice navigation
   if (currentChoices) {
     if (key === "w" || key === "arrowup") {
       selectedChoice =
@@ -133,6 +100,7 @@ class NPC {
     this.height = 64;
     this.dialog = dialog;
   }
+
   draw(ctx, offsetX, offsetY) {
     ctx.drawImage(
       this.image,
@@ -142,6 +110,7 @@ class NPC {
       this.height
     );
   }
+
   getHitbox() {
     return {
       left: this.x + 15,
@@ -178,7 +147,7 @@ function isSolidTile(tileId) {
 }
 
 function canMoveTo(newX, newY) {
-  if (dialogActive || inventoryOpen) return false;
+  if (dialogActive) return false;
 
   const hitbox = getPlayerHitbox(newX, newY);
   const corners = [
@@ -204,6 +173,7 @@ function canMoveTo(newX, newY) {
       return false;
     }
   }
+
   return true;
 }
 
@@ -281,26 +251,151 @@ function checkWaypointTrigger() {
   }
 }
 
-// ================== TEXT HELPERS ==================
-function drawColoredText(ctx, line, x, y) {
-  const parts = line.split(/(\{player\})/gi);
-  let offsetX = 0;
-  for (const part of parts) {
-    if (part.toLowerCase() === "{player}") {
-      ctx.fillStyle = "gold";
-      ctx.fillText(player.name, x + offsetX, y);
-      offsetX += ctx.measureText(player.name + " ").width;
-    } else {
+// ================== DIALOG PARSER ==================
+function parseDialog(text) {
+  return text;
+}
+
+// ================== GAME LOOP ==================
+function gameLoop(now = performance.now()) {
+  const dt = (now - lastTime) / 1000;
+  lastTime = now;
+  updatePlayerMovement(dt);
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  const offsetX = player.x - canvas.width / 2 + player.width / 2;
+  const offsetY = player.y - canvas.height / 2 + player.height / 2;
+  tileEngine.drawMap(currentMap, offsetX, offsetY);
+
+  if (mapNPCs[currentMap]) {
+    mapNPCs[currentMap].forEach((npc) => npc.draw(ctx, offsetX, offsetY));
+  }
+
+  // Draw player
+  ctx.drawImage(
+    player.image,
+    canvas.width / 2 - player.width / 2,
+    canvas.height / 2 - player.height / 2,
+    player.width,
+    player.height
+  );
+
+// Draw player name above head with background
+ctx.font = "16px Arial";
+ctx.textAlign = "center";
+const nameText = player.name;
+
+// Measure text for background dimensions
+const textWidth = ctx.measureText(nameText).width;
+const textX = canvas.width / 2;
+const textY = canvas.height / 2 - player.height / 2 - 10;
+
+// Draw semi-transparent background box
+ctx.fillStyle = "rgba(0, 0, 0, 0.6)";
+ctx.fillRect(
+  textX - textWidth / 2 - 6,
+  textY - 16,
+  textWidth + 12, 30 
+);
+
+// Draw the name on top
+ctx.fillStyle = "white";
+ctx.fillText(nameText, textX, textY + 4);
+
+  // DEBUG INFO
+  if (debugMode) {
+    const hb = getPlayerHitbox(player.x, player.y);
+    const centerX = (hb.left + hb.right) / 2;
+    const centerY = (hb.top + hb.bottom) / 2;
+    const { col, row } = tileEngine.pixelToGrid(centerX, centerY);
+
+    ctx.fillStyle = "rgba(0,0,0,0.7)";
+    ctx.fillRect(10, 10, 320, 40);
+
+    ctx.fillStyle = "lime";
+    ctx.font = "16px monospace";
+    ctx.textAlign = "left";
+    ctx.fillText(`Map: ${currentMap} | Col: ${col}, Row: ${row}`, 20, 35);
+  }
+
+  // NPC Interaction check
+  if (!dialogActive) {
+    currentDialogNPC = null;
+    const playerHb = getPlayerHitbox(player.x, player.y);
+
+    for (const npc of mapNPCs[currentMap] || []) {
+      const hb = npc.getHitbox();
+      const distX =
+        Math.abs(
+          (playerHb.left + playerHb.right) / 2 - (hb.left + hb.right) / 2
+        );
+      const distY =
+        Math.abs(
+          (playerHb.top + playerHb.bottom) / 2 - (hb.top + hb.bottom) / 2
+        );
+
+      if (distX < 60 && distY < 60) {
+        currentDialogNPC = npc;
+      }
+    }
+
+    if (currentDialogNPC) {
+      ctx.fillStyle = "rgba(0,0,0,0.7)";
+      ctx.fillRect(canvas.width / 2 - 60, canvas.height / 2 - 100, 120, 30);
       ctx.fillStyle = "white";
-      ctx.fillText(part, x + offsetX, y);
-      offsetX += ctx.measureText(part + " ").width;
+      ctx.font = "16px Arial";
+      ctx.textAlign = "center";
+      ctx.fillText("Press E to talk", canvas.width / 2, canvas.height / 2 - 80);
     }
   }
+
+  // DIALOG BOX
+  if (dialogActive && currentDialogNPC) {
+    const line = currentDialogNPC.dialog[dialogIndex] || "";
+
+    ctx.fillStyle = "rgba(0,0,0,0.8)";
+    ctx.fillRect(50, canvas.height - 150, canvas.width - 100, 100);
+
+    ctx.strokeStyle = "white";
+    ctx.lineWidth = 2;
+    ctx.strokeRect(50, canvas.height - 150, canvas.width - 100, 100);
+
+    ctx.font = "18px Arial";
+    ctx.textAlign = "left";
+
+    if (typeof line === "string") {
+      ctx.fillStyle = "white";
+      wrapText(
+        ctx,
+        parseDialog(line),
+        70,
+        canvas.height - 120,
+        canvas.width - 140,
+        22
+      );
+    } else if (line.choices) {
+      ctx.fillStyle = "white";
+      ctx.fillText(parseDialog(line.text), 70, canvas.height - 120);
+      currentChoices = line.choices;
+
+      line.choices.forEach((choice, i) => {
+        ctx.fillStyle = i === selectedChoice ? "yellow" : "white";
+        ctx.fillText(
+          parseDialog(choice.option),
+          90,
+          canvas.height - 90 + i * 22
+        );
+      });
+    }
+  }
+
+  requestAnimationFrame(gameLoop);
 }
 
 function wrapText(ctx, text, x, y, maxWidth, lineHeight) {
-  const words = text.split(" ");
+  // Split into words so wrapping still works
+  const words = parseDialog(text).split(" ");
   let line = "";
+
   for (let n = 0; n < words.length; n++) {
     const testLine = line + words[n] + " ";
     const testWidth = ctx.measureText(testLine).width;
@@ -313,151 +408,25 @@ function wrapText(ctx, text, x, y, maxWidth, lineHeight) {
       line = testLine;
     }
   }
+
   drawColoredText(ctx, line.trim(), x, y);
 }
 
-// ================== GAME LOOP ==================
-function gameLoop(now = performance.now()) {
-  const dt = (now - lastTime) / 1000;
-  lastTime = now;
-  updatePlayerMovement(dt);
+function drawColoredText(ctx, line, x, y) {
+  const parts = line.split(/(\{player\})/gi); // keep {player} as a separate token
+  let offsetX = 0;
 
-  ctx.clearRect(0, 0, canvas.width, canvas.height);
-  const offsetX = player.x - canvas.width / 2 + player.width / 2;
-  const offsetY = player.y - canvas.height / 2 + player.height / 2;
-  tileEngine.drawMap(currentMap, offsetX, offsetY);
-
-  if (mapNPCs[currentMap]) {
-    mapNPCs[currentMap].forEach((npc) => npc.draw(ctx, offsetX, offsetY));
-  }
-
-  // Player sprite
-  ctx.drawImage(
-    player.image,
-    canvas.width / 2 - player.width / 2,
-    canvas.height / 2 - player.height / 2,
-    player.width,
-    player.height
-  );
-
-  // Player name tag background
-  ctx.font = "16px Arial";
-  ctx.textAlign = "center";
-  const nameWidth = ctx.measureText(player.name).width;
-  const nameX = canvas.width / 2;
-  const nameY = canvas.height / 2 - player.height / 2 - 10;
-
-  ctx.fillStyle = "rgba(0,0,0,0.6)";
-  ctx.fillRect(nameX - nameWidth / 2 - 6, nameY - 16, nameWidth + 12, 30);
-
-  ctx.fillStyle = "white";
-  ctx.fillText(player.name, nameX, nameY + 4);
-
-  // DEBUG
-  if (debugMode) {
-    const hb = getPlayerHitbox(player.x, player.y);
-    const centerX = (hb.left + hb.right) / 2;
-    const centerY = (hb.top + hb.bottom) / 2;
-    const { col, row } = tileEngine.pixelToGrid(centerX, centerY);
-
-    ctx.fillStyle = "rgba(0,0,0,0.7)";
-    ctx.fillRect(10, 10, 320, 40);
-    ctx.fillStyle = "lime";
-    ctx.font = "16px monospace";
-    ctx.textAlign = "left";
-    ctx.fillText(`Map: ${currentMap} | Col: ${col}, Row: ${row}`, 20, 35);
-  }
-
-  // NPC interaction + dialog
-  if (!dialogActive && !inventoryOpen) {
-    currentDialogNPC = null;
-    const playerHb = getPlayerHitbox(player.x, player.y);
-    for (const npc of mapNPCs[currentMap] || []) {
-      const hb = npc.getHitbox();
-      const distX = Math.abs(
-        (playerHb.left + playerHb.right) / 2 - (hb.left + hb.right) / 2
-      );
-      const distY = Math.abs(
-        (playerHb.top + playerHb.bottom) / 2 - (hb.top + hb.bottom) / 2
-      );
-      if (distX < 60 && distY < 60) currentDialogNPC = npc;
-    }
-    if (currentDialogNPC) {
-      ctx.fillStyle = "rgba(0,0,0,0.7)";
-      ctx.fillRect(canvas.width / 2 - 60, canvas.height / 2 - 100, 120, 30);
-      ctx.fillStyle = "white";
-      ctx.font = "16px Arial";
-      ctx.textAlign = "center";
-      ctx.fillText("Press E to talk", canvas.width / 2, canvas.height / 2 - 80);
+  for (const part of parts) {
+    if (part.toLowerCase() === "{player}") {
+      ctx.fillStyle = "gold"; // special color for player name
+      ctx.fillText(player.name, x + offsetX, y);
+      offsetX += ctx.measureText(player.name + " ").width;
+    } else {
+      ctx.fillStyle = "white"; // default text color
+      ctx.fillText(part, x + offsetX, y);
+      offsetX += ctx.measureText(part + " ").width;
     }
   }
-
-  if (dialogActive && currentDialogNPC) {
-    const line = currentDialogNPC.dialog[dialogIndex] || "";
-
-    ctx.fillStyle = "rgba(0,0,0,0.8)";
-    ctx.fillRect(50, canvas.height - 150, canvas.width - 100, 100);
-    ctx.strokeStyle = "white";
-    ctx.lineWidth = 2;
-    ctx.strokeRect(50, canvas.height - 150, canvas.width - 100, 100);
-
-    ctx.font = "18px Arial";
-    ctx.textAlign = "left";
-
-    if (typeof line === "string") {
-      wrapText(ctx, line, 70, canvas.height - 120, canvas.width - 140, 22);
-    } else if (line.choices) {
-      ctx.fillStyle = "white";
-      ctx.fillText(line.text, 70, canvas.height - 120);
-      currentChoices = line.choices;
-      line.choices.forEach((choice, i) => {
-        ctx.fillStyle = i === selectedChoice ? "yellow" : "white";
-        ctx.fillText(choice.option, 90, canvas.height - 90 + i * 22);
-      });
-    }
-  }
-
-  // INVENTORY screen
-  if (inventoryOpen) {
-    const boxWidth = canvas.width - 100;
-    const boxHeight = canvas.height - 100;
-    const startX = 50;
-    const startY = 50;
-
-    ctx.fillStyle = "rgba(20,20,20,0.95)";
-    ctx.fillRect(startX, startY, boxWidth, boxHeight);
-    ctx.strokeStyle = "white";
-    ctx.lineWidth = 2;
-    ctx.strokeRect(startX, startY, boxWidth, boxHeight);
-
-    ctx.fillStyle = "white";
-    ctx.font = "20px Arial";
-    ctx.textAlign = "center";
-    ctx.fillText("Inventory", startX + boxWidth / 2, startY + 40);
-
-    ctx.font = "16px Arial";
-    ctx.textAlign = "left";
-    let col = 0,
-      row = 0;
-    for (let i = 0; i < inventory.length; i++) {
-      const item = inventory[i];
-      const itemX = startX + 40 + col * 150;
-      const itemY = startY + 80 + row * 40;
-      ctx.fillText("- " + item, itemX, itemY);
-      col++;
-      if (col >= 4) {
-        col = 0;
-        row++;
-      }
-    }
-
-    if (inventory.length === 0) {
-      ctx.fillStyle = "gray";
-      ctx.fillText("(Empty)", startX + 50, startY + 80);
-    }
-  }
-
-  requestAnimationFrame(gameLoop);
 }
 
 // ================== INITIALIZE ==================
@@ -465,7 +434,8 @@ async function loadTiles() {
   const promises = [];
   const register = (id, path) =>
     promises.push(tileEngine.registerTile(id, path));
-  // --- Register tiles here (same as your existing code) ---
+
+  // Main tiles
   register(1, "textures/grass.png");
   register(2, "textures/water.png");
   register(3, "textures/stone.png");
@@ -478,6 +448,8 @@ async function loadTiles() {
   register(10, "textures/desk.png");
   register(11, "textures/bed-bottom.png");
   register(12, "textures/bed-top.png");
+
+  // Misc
   register(20, "textures/grass.png");
   register(30, "textures/teleport.jpg");
   register(31, "textures/door-bottom.png");
@@ -488,14 +460,17 @@ async function loadTiles() {
   register(36, "textures/door-right-green.png");
   register(37, "textures/door-top-path.png");
   register(38, "textures/painting.png");
+
+  // Debug
   register(100, "textures/DebugWall.png");
   register(101, "textures/InvWall.png");
   register(102, "textures/NoCollisonInv.png");
 
   await Promise.all(promises);
 
+  // --- MAPS ---
   const map1 = [
-    [100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100 ,100],
+    [100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100],
     [100, 1, 1, 1, 1, 7, 1, 1, 5, 5, 5, 100],
     [100, 1, 6, 1, 1, 1, 6, 1, 5, 37, 5, 100],
     [100, 1, 1, 7, 1, 1, 1, 1, 6, 4, 1, 100],
@@ -505,13 +480,12 @@ async function loadTiles() {
     [100, 1, 1, 6, 1, 4, 4, 1, 1, 1, 6, 100],
     [100, 1, 7, 1, 1, 7, 4, 6, 1, 1, 1, 100],
     [100, 1, 6, 1, 1, 1, 4, 1, 1, 7, 1, 100],
-    [100, 100, 100, 100, 100, 100, 4, 100, 100, 100, 100 ,100],
+    [100, 100, 100, 100, 100, 100, 4, 100, 100, 100, 100, 100],
   ];
   tileEngine.defineMap("map1", map1);
 
-  // Map 2 (simple room for now)
   const map2 = [
-    [100, 100, 100, 100, 100, 100, 4, 100, 100, 100, 100 ,100],
+    [100, 100, 100, 100, 100, 100, 4, 100, 100, 100, 100, 100],
     [100, 1, 1, 1, 1, 1, 4, 1, 1, 1, 1, 100],
     [100, 1, 1, 1, 1, 1, 4, 1, 1, 1, 1, 100],
     [100, 1, 1, 1, 1, 1, 4, 1, 1, 1, 1, 100],
@@ -521,11 +495,10 @@ async function loadTiles() {
     [100, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 100],
     [100, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 100],
     [100, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 100],
-    [100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100 ,100],
+    [100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100],
   ];
   tileEngine.defineMap("map2", map2);
 
-  // House interior
   const map_house = [
     [101, 100, 100, 100, 100, 100, 100, 100, 100, 100, 101],
     [100, 5, 5, 5, 5, 5, 38, 5, 5, 5, 100],
@@ -538,7 +511,7 @@ async function loadTiles() {
   ];
   tileEngine.defineMap("map_house", map_house);
 
-  // Example NPC that gives items
+  // NPC with choice dialog + player name parsing
   addNPC("map_house", 3, 2, "textures/House-NPC.png", [
     "Hello {player}!",
     "I was just working. What brings you here?",
@@ -562,10 +535,7 @@ async function loadTiles() {
                 },
                 {
                   option: "Can you give me something?",
-                  outcome: [
-                    "Here, {player}, take this potion.",
-                    () => inventory.push("Potion"),
-                  ],
+                  outcome: ["Here, {player}, take this potion. Use it wisely."],
                 },
               ],
             },
@@ -599,5 +569,6 @@ async function loadTiles() {
 }
 
 setPlayerSpawn(2, 5);
+
 player.image.onload = () => loadTiles();
 player.image.src = "textures/player.png";
