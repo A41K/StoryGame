@@ -5,20 +5,24 @@
     <title>StoryGame</title>
      <meta http-equiv="Content-Security-Policy" content="script-src 'self' 'unsafe-inline';" />
     <style>
-html,
-body {
-  height: 100%;
-  margin: 0;
-  background: #222;
-  display: flex;
-  justify-content: center;
-  align-items: center;
-}
+        html,
+        body {
+          height: 100%;
+          margin: 0;
+          background: #222;
+          display: flex;
+          justify-content: center;
+          align-items: center;
+        }
 
-canvas {
-  border: 2px solid white;
-  background: black; 
-}
+        canvas {
+          border: 2px solid white;
+          background: black; 
+        }
+      @font-face {
+        font-family: 'Mojangles';
+        src: url('textures/mojangles.ttf') format('truetype');
+      }
     </style>
 </head>
 <body>
@@ -31,11 +35,52 @@ canvas {
 
 
 <!--
-  // Map 1
+// ================== INITIALIZE ==================
+async function loadTiles() {
+  const promises = [];
+  const register = (id, path) =>
+    promises.push(tileEngine.registerTile(id, path));
+  // --- Register tiles here (same as your existing code) ---
+  register(1, "textures/grass.png");
+  register(2, "textures/water.png");
+  register(3, "textures/stone.png");
+  register(4, "textures/path2.png");
+  register(5, "textures/wood.png");
+  register(6, "textures/tree.png");
+  register(7, "textures/bush.png");
+  register(8, "textures/rug-bottom.png");
+  register(9, "textures/rug-top.png");
+  register(10, "textures/desk.png");
+  register(11, "textures/bed-bottom.png");
+  register(12, "textures/bed-top.png");
+
+  register(20, "textures/grass.png");
+  register(30, "textures/teleport.jpg");
+  register(31, "textures/door-bottom.png");
+  register(32, "textures/door-top.png");
+  register(33, "textures/house-inside.png");
+  register(34, "textures/door-left.png");
+  register(35, "textures/door-right.png");
+  register(36, "textures/door-right-green.png");
+  register(37, "textures/door-top-path.png");
+  register(38, "textures/painting.png");
+  register(39, "textures/House-Teleport.png");
+  register(40, "textures/door-bottom-wood.png");
+
+  register(100, "textures/DebugWall.png");
+  register(101, "textures/InvWall.png");
+  register(102, "textures/NoCollisonInv.png");
+
+// Register example items
+registerItem("Potion", "textures/Potion.png");
+registerItem("Bed Leg", "textures/Bed-Leg.png");
+
+  await Promise.all(promises);
+
   const map1 = [
     [100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100 ,100],
-    [100, 1, 1, 1, 1, 7, 1, 1, 5, 5, 5, 100],
-    [100, 1, 6, 1, 1, 1, 6, 1, 5, 37, 5, 100],
+    [100, 1, 1, 1, 1, 7, 1, 1, 1, 1, 1, 100],
+    [100, 1, 6, 1, 1, 1, 6, 1, 1, 39, 1, 100],
     [100, 1, 1, 7, 1, 1, 1, 1, 6, 4, 1, 100],
     [100, 1, 1, 1, 1, 1, 1, 7, 1, 4, 1, 100],
     [100, 4, 4, 4, 4, 4, 4, 4, 4, 4, 1, 100],
@@ -66,13 +111,87 @@ canvas {
   // House interior
   const map_house = [
     [101, 100, 100, 100, 100, 100, 100, 100, 100, 100, 101],
-    [100, 5, 5, 5, 5, 5, 5, 5, 5, 5, 100],
+    [100, 5, 5, 5, 5, 5, 38, 5, 5, 5, 100],
     [100, 5, 33, 10, 33, 33, 33, 33, 12, 5, 100],
     [100, 5, 8, 33, 33, 33, 33, 33, 11, 5, 100],
     [100, 5, 9, 33, 33, 33, 33, 33, 33, 5, 100],
     [100, 5, 33, 33, 33, 33, 33, 33, 33, 5, 100],
     [100, 5, 33, 33, 33, 33, 33, 33, 33, 5, 100],
-    [100, 5, 5, 5, 5, 32, 5, 5, 5, 5, 100],
+    [100, 5, 5, 5, 5, 40, 5, 5, 5, 5, 100],
   ];
   tileEngine.defineMap("map_house", map_house);
+
+  // Example NPC that gives items
+  addNPC("map_house", 3, 2, "textures/House-NPC.png", [
+    "Hello {player}!",
+    "I was just working. What brings you here?",
+    {
+      text: "Choose your response:",
+      choices: [
+        {
+          option: "I'm just exploring.",
+          outcome: ["Ah, enjoy your time here, {player}!"],
+        },
+        {
+          option: "I need your help.",
+          outcome: [
+            "Of course, {player}! What do you need?",
+            {
+              text: "Tell me what you want:",
+              choices: [
+                {
+                  option: "Can you guide me?",
+                  outcome: ["Sure, {player}! Follow the path outside the house."],
+                },
+                {
+                  option: "Can you give me something?",
+                  outcome: [
+                    "Here, {player}, take this potion.",
+                    () => giveItem("Potion", 1),
+                  ],
+                },
+              ],
+            },
+          ],
+        },
+      ],
+    },
+    "Safe travels, {player}.",
+  ]);
+
+  // Paint NPC
+  addNPC("map_house", 6, 1, "textures/InvWall.png", [
+    "Dude I'm just painting.",
+    "What do you want?",
+    {
+      text: "Choose your response:",
+      choices: [
+        {
+          option: "Just y'know looking around.",
+          outcome: ["Then carry on and let me... be a painting?"],
+        },
+        {
+          option: "What can you give me?",
+          outcome: ["Nothin' {player} I'm still just painting."],
+        },
+      ],
+    },
+    "Good traveling {player}.",
+  ]);
+
+  // Bed
+
+    addNPC("map_house", 8, 2, "textures/InvWall.png", [
+    "Bed",
+    "Bed, Bed Bed BED!",
+    "Zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz",
+    "*Snore* *Snore* *Beding*",
+    "*Creacking*, Bed leg tore off",() => giveItem("Bed Leg", 1), "You Just got a Bed Leg!",
+  ]);
+  gameLoop();
+}
+
+setPlayerSpawn(2, 5);
+player.image.onload = () => loadTiles();
+player.image.src = "textures/player.png";
 -->
