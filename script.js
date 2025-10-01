@@ -101,6 +101,7 @@ function giveItem(name, count = 1, once = false) {
 // Register example items BEFORE gameLoop starts
 registerItem("Potion", "textures/Potion.png");
 registerItem("Bed Leg", "textures/Bed-Leg.png");
+registerItem("Mouse", "textures/mouse.png")
 
 // ================== TOOLTIP ==================
 function drawTooltip(ctx, text, x, y) {
@@ -476,6 +477,16 @@ const waypoints = [
     to: { map: "map_house", col: 5, row: 6 },
   },
   {
+    fromMap: "map1",
+    tile: { col: 2, row: 9 },
+    to: { map: "Secret1", col: 2, row: 2 },
+  },
+  {
+    fromMap: "Secret1",
+    tile: { col: 3, row: 2 },
+    to: { map: "map1", col: 2, row: 8 },
+  },
+  {
     fromMap: "map_house",
     tile: { col: 5, row: 7 },
     to: { map: "map1", col: 9, row: 3 },
@@ -494,7 +505,17 @@ const waypoints = [
     fromMap: "tutorialMap",
     tile: { col: 8, row: 2 },
     to: { map: "map1", col: 1, row: 5 },
-  }
+  },
+  {
+    fromMap: "map2",
+    tile: { col: 9, row: 5 },
+    to: { map: "Cavemap", col: 2, row: 5 },
+  },
+  {
+    fromMap: "Cavemap",
+    tile: { col: 1, row: 5 },
+    to: { map: "map2", col: 8, row: 5 },
+  },
 ];
 
 function checkWaypointTrigger() {
@@ -778,10 +799,14 @@ async function loadTiles() {
   register(38, "textures/painting.png");
   register(39, "textures/House-Teleport.png");
   register(40, "textures/door-bottom-wood.png");
+  register(41, "textures/stone-path.png");
+  register(42, "textures/tree.png");
+  register(50, "textures/cave-inside.png");
 
   register(100, "textures/DebugWall.png");
   register(101, "textures/InvWall.png");
   register(102, "textures/NoCollisonInv.png");
+  register(103, "textures/DebugWall.png")
 
   await Promise.all(promises);
 
@@ -804,7 +829,7 @@ async function loadTiles() {
     [100, 1, 1, 1, 1, 4, 7, 1, 1, 1, 1, 100],
     [100, 1, 1, 6, 1, 4, 4, 1, 1, 1, 6, 100],
     [100, 1, 7, 1, 1, 7, 4, 6, 1, 1, 1, 100],
-    [100, 1, 6, 1, 1, 1, 4, 1, 1, 7, 1, 100],
+    [100, 1, 42, 1, 1, 1, 4, 1, 1, 7, 1, 100],
     [100, 100, 100, 100, 100, 100, 4, 100, 100, 100, 100 ,100],
   ];
   tileEngine.defineMap("map1", map1);
@@ -812,18 +837,43 @@ async function loadTiles() {
   // Map 2 (simple room for now)
   const map2 = [
     [100, 100, 100, 100, 100, 100, 4, 100, 100, 100, 100 ,100],
-    [100, 1, 1, 1, 1, 1, 4, 1, 1, 1, 1, 100],
-    [100, 1, 1, 1, 1, 1, 4, 1, 1, 1, 1, 100],
-    [100, 1, 1, 1, 1, 1, 4, 1, 1, 1, 1, 100],
-    [100, 1, 1, 1, 1, 1, 4, 1, 1, 1, 1, 100],
-    [100, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 100],
-    [100, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 100],
-    [100, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 100],
-    [100, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 100],
-    [100, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 100],
+    [100, 1, 6, 1, 1, 1, 4, 6, 1, 7, 1, 100],
+    [100, 1, 1, 1, 6, 1, 4, 1, 1, 1, 1, 100],
+    [100, 1, 1, 7, 1, 1, 4, 1, 1, 1, 1, 100],
+    [100, 1, 1, 1, 1, 1, 4, 7, 1, 3, 3, 100],
+    [100, 1, 1, 1, 6, 4, 4, 4, 4, 41, 3, 100],
+    [100, 1, 7, 1, 1, 4, 1, 1, 1, 3, 3, 100],
+    [100, 1, 1, 4, 4, 4, 1, 6, 1, 1, 1, 100],
+    [100, 1, 6, 4, 1, 1, 1, 1, 1, 7, 1, 100],
+    [100, 1, 1, 4, 1, 1, 7, 1, 1, 1, 1, 100],
     [100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100 ,100],
   ];
   tileEngine.defineMap("map2", map2);
+
+  const Secret1 =[
+    [100, 100, 100, 100, 100],
+    [100, 1, 1, 1, 100],
+    [100, 1, 1, 4, 100],
+    [100, 1, 1, 1, 100],
+    [100, 100, 100, 100, 100],
+  ];
+  tileEngine.defineMap("Secret1", Secret1)
+
+  // Cavemap (simple room for now)
+  const Cavemap = [
+    [100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100 ,100],
+    [100, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 100],
+    [100, 3, 50, 50, 50, 50, 50, 50, 50, 50, 3, 100],
+    [100, 3, 50, 50, 50, 50, 50, 50, 50, 50, 3, 100],
+    [100, 3, 50, 50, 50, 50, 50, 50, 50, 50, 3, 100],
+    [100, 4, 50, 50, 50, 50, 50, 50, 50, 50, 3, 100],
+    [100, 3, 50, 50, 50, 50, 50, 50, 50, 50, 3, 100],
+    [100, 3, 50, 50, 50, 50, 50, 50, 50, 50, 3, 100],
+    [100, 3, 50, 50, 50, 50, 50, 50, 50, 50, 3, 100],
+    [100, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 100],
+    [100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100 ,100],
+  ];
+  tileEngine.defineMap("Cavemap", Cavemap);
 
   // House interior
   const map_house = [
@@ -858,7 +908,7 @@ async function loadTiles() {
               choices: [
                 {
                   option: "Can you guide me?",
-                  outcome: ["Sure, {player}! Follow the path outside the house."],
+                  outcome: ["Sure, {player}! Follow the path outside the house. There will be a big cave to the north. Be careful!"],
                 },
                 {
                   option: "Can you give me something?",
@@ -916,6 +966,12 @@ async function loadTiles() {
     "Press 'E' to interact with NPCs.",
     "Behind you is a teleport tile to take you to the main map.",
     "Enjoy your adventure!",
+  ]);
+
+  addNPC("Secret1", 2, 3, "textures/chest.png", [
+    "You Opened the chest and got a ...",
+    "Mouse???",
+    () => giveItem("Mouse", 1, true),
   ]);
 
   gameLoop();
